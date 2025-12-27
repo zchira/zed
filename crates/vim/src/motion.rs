@@ -1018,7 +1018,7 @@ impl Motion {
             ),
             EndOfLine { display_lines } => (
                 end_of_line(map, *display_lines, point, times),
-                SelectionGoal::None,
+                SelectionGoal::PreferLineEnd,
             ),
             SentenceBackward => (sentence_backwards(map, point, times), SelectionGoal::None),
             SentenceForward => (sentence_forwards(map, point, times), SelectionGoal::None),
@@ -1556,6 +1556,10 @@ fn up_down_buffer_rows(
         SelectionGoal::WrappedHorizontalPosition((row, x)) => (row, x),
         SelectionGoal::HorizontalRange { end, .. } => (select_nth_wrapped_row, end as f32),
         SelectionGoal::HorizontalPosition(x) => (select_nth_wrapped_row, x as f32),
+        SelectionGoal::PreferLineEnd => (
+            select_nth_wrapped_row,
+            map.x_for_display_point(point, text_layout_details).into(),
+        ),
         _ => {
             let x = map.x_for_display_point(point, text_layout_details);
             goal = SelectionGoal::WrappedHorizontalPosition((select_nth_wrapped_row, x.into()));
@@ -1603,6 +1607,11 @@ fn up_down_buffer_rows(
     // See: https://github.com/zed-industries/zed/issues/29134
     if clipped_point.row() > point.row() {
         clipped_point = map.clip_point(point, Bias::Left);
+    }
+
+    let prefer_line_end = matches!(goal, SelectionGoal::PreferLineEnd);
+    if prefer_line_end {
+        clipped_point = end_of_line(map, false, point, 1);
     }
 
     (clipped_point, goal)
